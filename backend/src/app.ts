@@ -47,8 +47,15 @@ export function createApp(): Express {
     serverAdapter: serverAdapter,
   });
 
+  app.get('/admin', (req: Request, res: Response) => res.redirect('/admin/queues/'));
+  app.get('/admin/queues', (req: Request, res: Response, next: NextFunction) => {
+    if (!req.originalUrl.endsWith('/')) {
+      return res.redirect(301, '/admin/queues/');
+    }
+    next();
+  });
   app.use('/admin/queues', serverAdapter.getRouter());
-  console.log('BullMQ Live Dashboard mounted at /admin/queues');
+  console.log('BullMQ Live Dashboard mounted at /admin/queues/');
 
   // Health Check
   app.get('/health', (req: Request, res: Response) => {

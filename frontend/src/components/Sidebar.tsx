@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const bullBoardUrl =
     import.meta.env.VITE_BULL_BOARD_URL ||
-    (API_BASE ? `${API_BASE.replace(/\/api\/?$/, '')}/admin/queues` : 'http://localhost:5000/admin/queues');
+    (API_BASE ? `${API_BASE.replace(/\/api\/?$/, '')}/admin/queues/` : 'http://localhost:5000/admin/queues/');
 
 
   return (
