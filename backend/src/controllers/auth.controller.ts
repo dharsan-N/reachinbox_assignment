@@ -12,6 +12,13 @@ export class AuthController {
       const dynamicCallback = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`;
 
       const url = AuthService.getGoogleAuthUrl(dynamicCallback);
+
+      // If browser navigated directly, redirect to Google OAuth screen immediately
+      if (req.headers.accept && req.headers.accept.includes('text/html')) {
+        res.redirect(url);
+        return;
+      }
+
       res.json({ url });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
