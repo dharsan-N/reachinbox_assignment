@@ -1,40 +1,61 @@
 import { OAuth2Client } from 'google-auth-library';
+import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
 import { db } from '../config/db';
 import { User } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
-const googleClient = new OAuth2Client(
-  config.google.clientId,
-  config.google.clientSecret,
-  config.google.callbackUrl
-);
-
 export class AuthService {
-  public static getGoogleAuthUrl(): string {
-    return googleClient.generateAuthUrl({
+  public static getGoogleAuthUrl(redirectUri?: string): string {
+    const client = new OAuth2Client(
+      config.google.clientId,
+      config.google.clientSecret,
+      redirectUri || config.google.callbackUrl
+    );
+    return client.generateAuthUrl({
       access_type: 'offline',
       scope: [
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/gmail.send',
       ],
       prompt: 'consent',
     });
   }
 
-  public static async handleGoogleCallback(code: string): Promise<{ user: User; token: string }> {
+  public static async handleGoogleCallback(
+    code: string,
+    redirectUri?: string
+  ): Promise<{ user: User; token: string }> {
     try {
-      const { tokens } = await googleClient.getToken(code);
-      googleClient.setCredentials(tokens);
+      const client = new OAuth2Client(
+        config.google.clientId,
+        config.google.clientSecret,
+        redirectUri || config.google.callbackUrl
+      );
+      const { tokens } = await client.getToken(code);
+      client.setCredentials(tokens);
 
-      const ticket = await googleClient.verifyIdToken({
-        idToken: tokens.id_token!,
-        audience: config.google.clientId,
-      });
+      let payload: any = null;
+      if (tokens.id_token) {
+        try {
+          const ticket = await client.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: config.google.clientId,
+          });
+          payload = ticket.getPayload();
+        } catch {
+          // Fallback to userinfo
+        }
+      }
 
-      const payload = ticket.getPayload();
+      if (!payload || !payload.email) {
+        const userinfoRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        payload = userinfoRes.data;
+      }
+
       if (!payload || !payload.email) {
         throw new Error('Failed to retrieve user payload from Google ID Token.');
       }
@@ -110,22 +131,25 @@ export class AuthService {
   }
 
   public static async getOrCreateDemoUser(): Promise<{ user: User; token: string }> {
-    const res = await db.query(
-      `INSERT INTO users (id, google_id, email, name, avatar_url)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (email) DO UPDATE
-       SET name = EXCLUDED.name, avatar_url = EXCLUDED.avatar_url, updated_at = NOW()
-       RETURNING *`,
-      [
-        uuidv4(),
-        'demo_google_id_123',
-        'oliver.brown@email.io',
-        'Oliver Brown',
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-      ]
-    );
+    const res = await db.query(`SELECT * FROM users ORDER BY created_at ASC LIMIT 1`);
+    let user: User;
+    if (res.rowCount > 0) {
+      user = res.rows[0];
+    } else {
+      const created = await db.query(
+        `INSERT INTO users (id, email, name, avatar_url)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [
+          uuidv4(),
+          'oliver.brown@email.io',
+          'Oliver Brown',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+        ]
+      );
+      user = created.rows[0];
+    }
 
-    const user: User = res.rows[0];
     const token = this.generateToken(user);
     return { user, token };
   }
@@ -136,10 +160,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        avatar_url: user.avatar_url,
       },
       config.jwt.secret,
-      { expiresIn: config.jwt.expiresIn as any }
+      { expiresIn: '7d' }
     );
   }
 

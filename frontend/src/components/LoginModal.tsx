@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MailCheck, Sparkles, ArrowRight, Shield } from 'lucide-react';
+import React from 'react';
+import { MailCheck, Shield } from 'lucide-react';
 import { AuthService } from '../services/api';
 
 interface LoginModalProps {
@@ -8,9 +8,7 @@ interface LoginModalProps {
   onLoginSuccess: (user: any) => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [loading, setLoading] = useState(false);
-
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleGoogleLogin = async () => {
@@ -19,19 +17,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
       window.location.href = url;
     } catch (err: any) {
       console.error('Failed to get Google OAuth URL:', err);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    try {
-      const { user } = await AuthService.demoLogin();
-      onLoginSuccess(user);
-      onClose();
-    } catch (err: any) {
-      console.error('Failed to demo login:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -50,8 +35,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
           </p>
         </div>
 
-        {/* Buttons */}
-        <div className="space-y-3 pt-2">
+        {/* Google OAuth Button */}
+        <div className="pt-2">
           <button
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95"
@@ -76,29 +61,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
             </svg>
             <span>Continue with Google OAuth</span>
           </button>
-
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-800" />
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase">
-              <span className="bg-slate-900 px-2 text-slate-500 font-semibold">Or Quick Demo</span>
-            </div>
-          </div>
-
-          <button
-            onClick={handleDemoLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>{loading ? 'Signing in...' : '1-Click Instant Demo Login'}</span>
-          </button>
         </div>
 
         <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
           <Shield className="w-3.5 h-3.5 text-emerald-400" />
-          <span>BullMQ Redis Delayed Queues &bull; Ethereal SMTP &bull; Zero Cron</span>
+          <span>Secure Google OAuth 2.0 Identity Protocol</span>
         </div>
       </div>
     </div>

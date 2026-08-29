@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AuthService } from '../services/api';
 import { User } from '../types';
-import { AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
@@ -11,7 +11,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
@@ -20,23 +19,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       window.location.href = url;
     } catch (err: any) {
       setError(
-        'Google OAuth URL error: ' +
-          (err.response?.data?.error || err.message) +
-          '. You can use 1-Click Demo Login below!'
+        'Google OAuth Error: ' +
+          (err.response?.data?.error || err.message)
       );
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setDemoLoading(true);
-    setError(null);
-    try {
-      const { user } = await AuthService.demoLogin();
-      onLoginSuccess(user);
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Demo login failed');
-    } finally {
-      setDemoLoading(false);
     }
   };
 
@@ -61,7 +46,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white border border-slate-200/90 rounded-2xl shadow-xl p-8 space-y-5">
+      <div className="w-full max-w-sm bg-white border border-slate-200/90 rounded-2xl shadow-xl p-8 space-y-6">
         {/* Header */}
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Login</h1>
@@ -75,22 +60,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           </div>
         )}
 
-        {/* 1-Click Demo Login Button (Instant) */}
-        <button
-          onClick={handleDemoLogin}
-          disabled={demoLoading}
-          type="button"
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>{demoLoading ? 'Signing in...' : '1-Click Demo Login (Instant)'}</span>
-        </button>
-
-        {/* Google OAuth Login Button */}
+        {/* Real Google OAuth Login Button */}
         <button
           onClick={handleGoogleLogin}
           type="button"
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition-all"
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl shadow-sm transition-all active:scale-98"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -122,7 +96,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         </div>
 
         {/* Email Password Form */}
-        <form onSubmit={handleEmailLogin} className="space-y-3">
+        <form onSubmit={handleEmailLogin} className="space-y-3.5">
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-1">Email ID</label>
             <input
@@ -146,12 +120,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             />
           </div>
 
+          {/* Solid Green Login Button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+            className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
           >
-            {loading ? 'Logging in...' : 'Sign In'}
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
       </div>

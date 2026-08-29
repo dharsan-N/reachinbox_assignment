@@ -6,7 +6,12 @@ import { config } from '../config/env';
 export class AuthController {
   public static async getGoogleAuthUrl(req: Request, res: Response): Promise<void> {
     try {
-      const url = AuthService.getGoogleAuthUrl();
+      const host = req.get('host') || 'localhost:5000';
+      const isHttps = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https';
+      const protocol = isHttps ? 'https' : 'http';
+      const dynamicCallback = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`;
+
+      const url = AuthService.getGoogleAuthUrl(dynamicCallback);
       res.json({ url });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -22,7 +27,12 @@ export class AuthController {
     }
 
     try {
-      const { user, token } = await AuthService.handleGoogleCallback(code);
+      const host = req.get('host') || 'localhost:5000';
+      const isHttps = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https';
+      const protocol = isHttps ? 'https' : 'http';
+      const dynamicCallback = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`;
+
+      const { user, token } = await AuthService.handleGoogleCallback(code, dynamicCallback);
 
       res.cookie('token', token, {
         httpOnly: true,
@@ -31,7 +41,8 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
-      res.redirect(`${config.clientUrl}?token=${token}`);
+      const clientUrl = config.clientUrl || `${protocol}://${host}`;
+      res.redirect(`${clientUrl}?token=${token}`);
     } catch (err: any) {
       console.error('Google callback error:', err.message);
       res.redirect(`${config.clientUrl}?error=google_auth_failed`);
