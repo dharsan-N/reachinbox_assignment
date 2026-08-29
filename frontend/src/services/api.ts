@@ -8,19 +8,50 @@ import {
   User,
 } from '../types';
 
-let rawBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+function resolveApiBase(): string {
+  let envUrl = (import.meta.env.VITE_API_URL || '').trim();
 
-// Ensure protocol is attached if host was provided without https://
-if (rawBase && !rawBase.startsWith('http://') && !rawBase.startsWith('https://') && !rawBase.startsWith('/')) {
-  rawBase = `https://${rawBase}`;
+  // If in browser on *.onrender.com and envUrl is empty or points to localhost
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.onrender.com')) {
+    if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+      const backendHost = window.location.hostname.replace('frontend', 'backend');
+      return `https://${backendHost}/api`;
+    }
+  }
+
+  if (!envUrl) {
+    return 'http://localhost:5000/api';
+  }
+
+  // Remove trailing slashes
+  envUrl = envUrl.replace(/\/+$/, '');
+
+  // Strip protocol to inspect domain
+  const hasHttp = envUrl.startsWith('http://');
+  let stripped = envUrl.replace(/^https?:\/\//, '');
+
+  // Extract host and path
+  const slashIdx = stripped.indexOf('/');
+  let host = slashIdx === -1 ? stripped : stripped.slice(0, slashIdx);
+  let path = slashIdx === -1 ? '' : stripped.slice(slashIdx);
+
+  // If host is a Render private service name (e.g. reachinbox-backend-9le9 without any dot)
+  if (host && !host.includes('.') && !host.includes('localhost')) {
+    host = `${host}.onrender.com`;
+  }
+
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const protocol = hasHttp && isLocal ? 'http://' : 'https://';
+
+  if (!path.endsWith('/api') && !path.includes('/api')) {
+    path = `${path.replace(/\/$/, '')}/api`;
+  }
+
+  return `${protocol}${host}${path}`;
 }
 
-// Ensure /api suffix exists
-if (rawBase && !rawBase.endsWith('/api') && !rawBase.includes('/api')) {
-  rawBase = `${rawBase.replace(/\/$/, '')}/api`;
-}
+export const API_BASE = resolveApiBase();
 
-export const API_BASE = rawBase;
 
 export const api = axios.create({
   baseURL: API_BASE,
