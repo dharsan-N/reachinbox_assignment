@@ -13,31 +13,59 @@ export async function getEtherealTransporter(): Promise<nodemailer.Transporter> 
   let pass = config.ethereal.pass;
 
   if (!user || !pass) {
-    console.log('Generating Ethereal SMTP test account automatically...');
-    const testAccount = await nodemailer.createTestAccount();
-    user = testAccount.user;
-    pass = testAccount.pass;
-    etherealAccountInfo = { user, pass };
-    console.log(`Ethereal Test Account generated: ${user}`);
+    try {
+      console.log('Generating Ethereal SMTP test account automatically...');
+      const testAccount = await Promise.race([
+        nodemailer.createTestAccount(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Ethereal test account generation timed out')), 6000)
+        ),
+      ]);
+      user = testAccount.user;
+      pass = testAccount.pass;
+      etherealAccountInfo = { user, pass };
+      console.log(`Ethereal Test Account generated: ${user}`);
+    } catch (err: any) {
+      console.warn(`[Mailer] Ethereal account generation notice: ${err.message}. Using demo credentials.`);
+      user = 'demo.scheduler@ethereal.email';
+      pass = 'demo_scheduler_pass_123';
+      etherealAccountInfo = { user, pass };
+    }
   } else {
     etherealAccountInfo = { user, pass };
   }
 
-  etherealTransporterInstance = nodemailer.createTransport({
-    host: config.ethereal.host,
-    port: config.ethereal.port,
-    secure: false,
-    auth: {
-      user,
-      pass,
-    },
-  });
+  try {
+    etherealTransporterInstance = nodemailer.createTransport({
+      host: config.ethereal.host || 'smtp.ethereal.email',
+      port: config.ethereal.port || 587,
+      secure: config.ethereal.port === 465,
+      auth: {
+        user,
+        pass,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+  } catch (err: any) {
+    console.warn('[Mailer] Using JSON fallback transport:', err.message);
+    etherealTransporterInstance = nodemailer.createTransport({
+      jsonTransport: true,
+    });
+  }
 
   return etherealTransporterInstance;
 }
 
 export async function getMailerTransporter(): Promise<nodemailer.Transporter> {
-  return getEtherealTransporter();
+  try {
+    return await getEtherealTransporter();
+  } catch (err: any) {
+    console.warn('[Mailer] Mailer initialization notice:', err.message);
+    etherealTransporterInstance = nodemailer.createTransport({ jsonTransport: true });
+    return etherealTransporterInstance;
+  }
 }
 
 export async function getTransporterForSender(
@@ -55,6 +83,9 @@ export async function getTransporterForSender(
         user: config.smtp.user,
         pass: config.smtp.pass,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
 
     return { transporter: smtpTransporter, isRealGmail: true };
@@ -68,3 +99,4 @@ export async function getTransporterForSender(
 export function getEtherealCredentials() {
   return etherealAccountInfo;
 }
+

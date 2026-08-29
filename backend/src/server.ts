@@ -26,7 +26,8 @@ async function bootstrap() {
     // 4. Start BullMQ Email Worker Process
     const worker = startEmailWorker();
 
-    // 5. Run Server Restart Reconciliation Service (Checks for pending scheduled jobs)
+    // 5. Start Continuous Reconciliation & Scheduler Heartbeat
+    ReconciliationService.startHeartbeat();
     await ReconciliationService.reconcilePendingJobs();
 
     // 6. Start HTTP Server

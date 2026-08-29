@@ -55,12 +55,12 @@ export function startEmailWorker() {
 
       let isAllowed = 1;
       try {
-        isAllowed = await redisRateLimiter.eval(
+        isAllowed = (await redisRateLimiter.eval(
           RATE_LIMIT_LUA_SCRIPT,
           1,
           rateLimitKey,
           effectiveHourlyLimit.toString()
-        );
+        )) as number;
       } catch {
         isAllowed = 1;
       }

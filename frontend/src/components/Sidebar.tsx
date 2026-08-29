@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, SlackConnectionInfo } from '../types';
+import { API_BASE } from '../services/api';
 import {
   Clock,
   Send,
@@ -34,7 +35,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSlack,
   onLogout,
 }) => {
-  const bullBoardUrl = import.meta.env.VITE_BULL_BOARD_URL || 'http://localhost:5000/admin/queues';
+  const bullBoardUrl =
+    import.meta.env.VITE_BULL_BOARD_URL ||
+    (API_BASE ? `${API_BASE.replace(/\/api\/?$/, '')}/admin/queues` : 'http://localhost:5000/admin/queues');
+
 
   return (
     <aside className="w-64 figma-sidebar h-screen flex flex-col justify-between p-4 shrink-0 select-none">

@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../config/db';
 import { emailQueue, EmailJobData } from '../queues/email.queue';
+import { isRedisAvailable } from '../config/redis';
 import { ElasticsearchService } from './elasticsearch.service';
 import { EmailJob, EmailJobStatus, ScheduleEmailPayload } from '../types';
 import { config } from '../config/env';
@@ -75,7 +76,7 @@ export class EmailService {
 
       const emailJob: EmailJob = dbRes.rows[0];
 
-      // 2. Enqueue in BullMQ delayed queue (with resilient fallback for zero-dependency dev)
+      // 2. Enqueue in BullMQ delayed queue if Redis is available
       const jobData: EmailJobData = {
         emailJobId: emailJob.id,
         userId,
@@ -91,43 +92,20 @@ export class EmailService {
       };
 
       try {
-        const bullJob = await emailQueue.add('send-scheduled-email', jobData, {
-          delay: jobDelayMs,
-          jobId: emailJob.id,
-        });
+        const bullJob = await Promise.race([
+          emailQueue.add('send-scheduled-email', jobData, {
+            delay: jobDelayMs,
+            jobId: emailJob.id,
+          }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+        ]);
 
         if (bullJob) {
           await db.query('UPDATE email_jobs SET bull_job_id = $1 WHERE id = $2', [bullJob.id, emailJob.id]);
           emailJob.bull_job_id = bullJob.id;
         }
       } catch (queueErr: any) {
-        console.warn(`[BullMQ] Standalone delayed dispatch: ${queueErr.message}`);
-        setTimeout(async () => {
-          try {
-            const { getTransporterForSender } = require('../config/mailer');
-            const { transporter, isRealGmail } = await getTransporterForSender(userId, senderEmail);
-            const info = await transporter.sendMail({
-              from: `"${senderEmail.split('@')[0]}" <${senderEmail}>`,
-              to: recipient,
-              subject: subject,
-              text: body,
-              html: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">${body.replace(/\n/g, '<br/>')}</div>`,
-            });
-            let previewUrl: string | undefined = undefined;
-            if (!isRealGmail) {
-              previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
-            }
-            await db.query(
-              `UPDATE email_jobs
-               SET status = 'SENT', sent_at = NOW(), ethereal_message_id = $2, ethereal_preview_url = $3, updated_at = NOW()
-               WHERE id = $1`,
-              [emailJob.id, info.messageId, previewUrl]
-            );
-            console.log(`[SMTP] Delivered email to ${recipient} (Transport: ${isRealGmail ? 'Real Gmail OAuth2' : 'Ethereal SMTP'}). Preview: ${previewUrl}`);
-          } catch (err: any) {
-            console.error(`[SMTP] Send error:`, err.message);
-          }
-        }, Math.min(jobDelayMs, 3000));
+        console.warn(`[BullMQ] Queue dispatch notice: ${queueErr.message}. DB reconciliation scheduler active.`);
       }
 
       // 3. Index to Elasticsearch
@@ -212,9 +190,14 @@ export class EmailService {
     }
 
     try {
-      const bullJob = await emailQueue.getJob(emailJobId);
-      if (bullJob) {
-        await bullJob.remove();
+      if (isRedisAvailable()) {
+        const bullJob = await Promise.race([
+          emailQueue.getJob(emailJobId),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000)),
+        ]);
+        if (bullJob) {
+          await bullJob.remove();
+        }
       }
     } catch {}
 
@@ -250,7 +233,12 @@ export class EmailService {
 
     let queueStats = { waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0 };
     try {
-      queueStats = (await emailQueue.getJobCounts('waiting', 'active', 'delayed', 'completed', 'failed')) as any;
+      if (isRedisAvailable()) {
+        queueStats = (await Promise.race([
+          emailQueue.getJobCounts('waiting', 'active', 'delayed', 'completed', 'failed'),
+          new Promise((resolve) => setTimeout(() => resolve(queueStats), 1000)),
+        ])) as any;
+      }
     } catch {}
 
     return {

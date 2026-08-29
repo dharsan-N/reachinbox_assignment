@@ -37,6 +37,12 @@ services:
           name: reachinbox-backend
           property: host
           path: /api
+      - key: VITE_BULL_BOARD_URL
+        fromService:
+          type: web
+          name: reachinbox-backend
+          property: host
+          path: /admin/queues
 
 databases:
   - name: reachinbox-postgres
