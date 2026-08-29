@@ -8,7 +8,19 @@ import {
   User,
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+let rawBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Ensure protocol is attached if host was provided without https://
+if (rawBase && !rawBase.startsWith('http://') && !rawBase.startsWith('https://') && !rawBase.startsWith('/')) {
+  rawBase = `https://${rawBase}`;
+}
+
+// Ensure /api suffix exists
+if (rawBase && !rawBase.endsWith('/api') && !rawBase.includes('/api')) {
+  rawBase = `${rawBase.replace(/\/$/, '')}/api`;
+}
+
+export const API_BASE = rawBase;
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -108,7 +120,7 @@ export const SlackApi = {
     const res = await api.delete('/slack/disconnect');
     return res.data;
   },
-  testNotification: async () => {
+  sendTestAlert: async () => {
     const res = await api.post('/slack/test-notification');
     return res.data;
   },

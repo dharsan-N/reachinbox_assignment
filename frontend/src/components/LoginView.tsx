@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AuthService } from '../services/api';
 import { User } from '../types';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Sparkles } from 'lucide-react';
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
@@ -11,6 +11,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
@@ -18,7 +19,24 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       const url = await AuthService.getGoogleAuthUrl();
       window.location.href = url;
     } catch (err: any) {
-      setError('Failed to initiate Google OAuth: ' + err.message);
+      setError(
+        'Google OAuth URL error: ' +
+          (err.response?.data?.error || err.message) +
+          '. You can use 1-Click Demo Login below!'
+      );
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    setError(null);
+    try {
+      const { user } = await AuthService.demoLogin();
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Demo login failed');
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -43,24 +61,36 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white border border-slate-200/90 rounded-2xl shadow-xl p-8 space-y-6">
+      <div className="w-full max-w-sm bg-white border border-slate-200/90 rounded-2xl shadow-xl p-8 space-y-5">
         {/* Header */}
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Login</h1>
+          <p className="text-xs text-slate-500">Sign in to manage your cold email outreach</p>
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Real Google OAuth Login Button matching Figma */}
+        {/* 1-Click Demo Login Button (Instant) */}
+        <button
+          onClick={handleDemoLogin}
+          disabled={demoLoading}
+          type="button"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>{demoLoading ? 'Signing in...' : '1-Click Demo Login (Instant)'}</span>
+        </button>
+
+        {/* Google OAuth Login Button */}
         <button
           onClick={handleGoogleLogin}
           type="button"
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-emerald-50/60 hover:bg-emerald-100/60 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl shadow-sm transition-all"
+          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition-all"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -92,7 +122,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         </div>
 
         {/* Email Password Form */}
-        <form onSubmit={handleEmailLogin} className="space-y-3.5">
+        <form onSubmit={handleEmailLogin} className="space-y-3">
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-1">Email ID</label>
             <input
@@ -116,13 +146,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             />
           </div>
 
-          {/* Solid Green Login Button matching Figma */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+            className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Logging in...' : 'Sign In'}
           </button>
         </form>
       </div>
