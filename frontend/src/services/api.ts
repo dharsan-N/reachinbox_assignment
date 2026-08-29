@@ -124,4 +124,8 @@ export const SlackApi = {
     const res = await api.post('/slack/test-notification');
     return res.data;
   },
+  testNotification: async () => {
+    const res = await api.post('/slack/test-notification');
+    return res.data;
+  },
 };
