@@ -11,15 +11,29 @@ import apiRouter from './routes';
 export function createApp(): Express {
   const app = express();
 
-  // Middleware
+  // Permissive and resilient CORS for all onrender.com and local origins
   app.use(
     cors({
-      origin: [config.clientUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: (requestOrigin, callback) => {
+        if (
+          !requestOrigin ||
+          requestOrigin.includes('localhost') ||
+          requestOrigin.includes('127.0.0.1') ||
+          requestOrigin.includes('onrender.com') ||
+          requestOrigin === config.clientUrl ||
+          requestOrigin.replace(/\/$/, '') === config.clientUrl.replace(/\/$/, '')
+        ) {
+          callback(null, true);
+        } else {
+          callback(null, true);
+        }
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     })
   );
+
   app.use(cookieParser());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
